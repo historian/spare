@@ -25,7 +25,7 @@ class Spare::Storage::Git
     @config.backup_tasks.each do |_, task|
       files.concat task.resolve_files
     end
-    files = files.uniq
+    files = files.uniq.sort
     
     changes = []
     
@@ -39,7 +39,7 @@ class Spare::Storage::Git
     
     out.split("\n").each do |line|
       line = line.strip
-      status, path = line[0,1], line[3..-1]
+      status, path = line[0,1], line[2..-1].strip
       path, old_path = *path.split(/\s+\-\>\s+/, 2).reverse
       
       case status
@@ -50,21 +50,21 @@ class Spare::Storage::Git
         changes << ['D', old_path]
       when 'M', 'A', '?', 'C'
         status = 'A' if status == 'C' or status == '?'
-        changes << [status, path]
+        changes << [status, path] if files.include?(path)
       when 'D'
         changes << ['D', path]
       end
     end
     
-    puts "git ls-tree --full-tree -r --name-only master 2>&1"
     out = `git ls-tree --full-tree -r --name-only master 2>&1`
     unless $?.exitstatus == 0
-      out = out.gsub("\n", "\n              ")
-      puts "  *** FAILED: #{out}"
+      unless out =~ /Not a valid object name master/
+        out = out.gsub("\n", "\n              ")
+        puts "  *** FAILED: #{out}"
+      end
       out = ""
     end
     
-    puts out
     out.split("\n").each do |line|
       path = line.strip
       unless files.include?(path)
@@ -76,6 +76,8 @@ class Spare::Storage::Git
       puts "No changes since last backup."
       return
     end
+    
+    changes = changes.uniq
     
     # Stage deleted/updated/new files
     changes.each do |(status, path)|
@@ -90,7 +92,7 @@ class Spare::Storage::Git
         
       when 'D'
         puts "D #{path}"
-        out = `git rm #{path.inspect} 2>&1`
+        out = `git rm --cached #{path.inspect} 2>&1`
         unless $?.exitstatus == 0
           out = out.gsub("\n", "\n              ")
           puts "  *** FAILED: #{out}"
