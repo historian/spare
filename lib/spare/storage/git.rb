@@ -23,6 +23,7 @@ class Spare::Storage::Git
       files.concat task.resolve_files
     end
     files = files.uniq.sort
+    remaining_files = files.dup
 
     changes = []
 
@@ -46,6 +47,7 @@ class Spare::Storage::Git
           when 'D'
             changes << ['D', path]
           end
+          remaining_files.delete(path)
         end
       else
         show_error(out)
@@ -59,10 +61,16 @@ class Spare::Storage::Git
           unless files.include?(path)
             changes << ['D', path]
           end
+          remaining_files.delete(path)
         end
       elsif out !~ /Not a valid object name master/
         show_error(out)
       end
+    end
+
+    remaining_files.each do |path|
+      next unless File.file?(path)
+      changes << ['A', path]
     end
 
     if changes.empty?
@@ -113,7 +121,11 @@ class Spare::Storage::Git
       return unless git(:init, '.')
     end
 
-    rem_ref = git('ls-remote', '--heads', '--tags', remote)
+    rem_ref = nil
+    git('ls-remote', '--heads', '--tags', remote) do |s, o|
+      rem_ref = o.strip if s == 0
+    end
+
     if rem_ref
       rem_ref = rem_ref.split("\n").map do |line|
         line.split(/\s+/, 2).reverse
@@ -135,6 +147,8 @@ class Spare::Storage::Git
       return
     end
 
+    git(:fetch, '--force', remote, "#{branch}:origin/master")
+
     if old_ref
       message = <<-EOM
       Restoring a backup (at #{timestamp})
@@ -150,7 +164,7 @@ class Spare::Storage::Git
       git(:push, remote, ":#{branch}")
     end
 
-    git(:fetch, '--depth=4', remote, ref)
+    puts git(:log, 'origin/master')
     git(:reset, '--hard', ref)
     git(:push, remote, "master:#{branch}")
   end

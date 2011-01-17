@@ -6,11 +6,11 @@ class Spare::Task
     if Rake.application.current_scope.empty?
       Rake.application.in_namespace 'data' do
         install_master_tasks
-        instance_eval(&block)
+        instance_eval(&block) if block
       end
     else
       install_master_tasks
-      instance_eval(&block)
+      instance_eval(&block) if block
     end
   end
 
@@ -73,7 +73,6 @@ private
       Rake::Task.define_task("before_backup")
       Rake::Task.define_task("checkin_backup" => 'before_backup')
       Rake::Task.define_task("real_backup"    => 'checkin_backup')
-      Rake::Task.define_task("real_backup"    => 'before_backup')
       Rake::Task.define_task("after_backup"   => 'real_backup')
       Rake::Task.define_task("backup"         => 'after_backup')
 
