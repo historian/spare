@@ -107,6 +107,8 @@ class Spare::Storage::Git
     remote = storage_config[:remote]
     branch = storage_config[:branch]
     git(:push, remote, "master:#{branch}")
+    
+    cleanup
   end
 
   def validate_restore(ref)
@@ -250,6 +252,7 @@ private
     end
     
     last_ref = git(:log, '-n', 1, '--skip', 5, '--format=format:%H', 'master')
+    
     if last_ref
       File.open(File.join(ENV['GIT_DIR'], 'shallow'), 'w+') do |file|
         file.puts last_ref
