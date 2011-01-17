@@ -76,23 +76,30 @@ private
       Rake::Task.define_task("after_backup"   => 'real_backup')
       Rake::Task.define_task("backup"         => 'after_backup')
 
-      Rake::Task.define_task('before_restore')
+      Rake::Task.define_task('validate_restore')
+      Rake::Task.define_task('before_restore'   => 'validate_restore')
       Rake::Task.define_task("real_restore"     => 'before_restore')
       Rake::Task.define_task("checkout_restore" => 'real_restore')
       Rake::Task.define_task("after_restore"    => 'checkout_restore')
       Rake::Task.define_task("restore"          => 'after_restore')
 
       Rake::Task.define_task('real_backup') do
-        @config.storage.new(@config).backup
+        @config.storage.backup
       end
 
       Rake::Task.define_task('real_restore', [:ref]) do |t, args|
+        @config.storage.restore(args[:ref])
+      end
+
+      Rake::Task.define_task('validate_restore', [:ref]) do |t, args|
         unless args[:ref]
           puts "Please provide a REF=<> argument"
           exit 1
         end
-        @config.storage.new(@config).restore(args[:ref])
+        @config.storage.validate_restore(args[:ref])
       end
+      
+      Rake::Task.define_task('before_restore' => 'backup')
 
     end
   end

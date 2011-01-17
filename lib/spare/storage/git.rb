@@ -109,6 +109,89 @@ class Spare::Storage::Git
     git(:push, remote, "master:#{branch}")
   end
 
+  def validate_restore(ref)
+    storage_config       = @config.storage_config
+    remote               = storage_config[:remote]
+    branch               = storage_config[:branch]
+    ENV['GIT_DIR']       = File.expand_path(storage_config[:repository])
+    ENV['GIT_WORK_TREE'] = File.expand_path(".")
+    
+    unless File.directory?(ENV['GIT_DIR'])
+      unless git(:init, '.')
+        exit 1
+      end
+      
+      refs = get_remote_refs(remote)
+      
+      if refs and refs[ref]
+        @fetch_ref     = ref
+        @local_restore = refs[ref]
+      end
+      
+      if @local_restore
+        return
+      end
+      
+      puts "Initial restore needs a named ref (eg. master)"
+      exit 1
+      
+    else
+      
+      @current_ref = git(:log, '-n', 1, '--format=format:%H', 'master')
+      
+      refs = get_local_refs
+      if refs
+        if refs[ref]
+          @local_restore = refs[ref]
+        elsif refs.any? { |sha| sha == ref }
+          @local_restore = ref
+        elsif refs[:_anon].include?(ref)
+          @local_restore = ref
+        end
+      end
+      
+      if @local_restore
+        return
+      end
+      
+      refs = get_remote_refs(remote)
+      if refs and refs[ref]
+        @fetch_ref     = ref
+        @local_restore = refs[ref]
+      end
+      
+      if @local_restore
+        return
+      end
+      
+      deepen_history(remote)
+      refs = get_local_refs(true)
+      
+      if refs
+        if refs[ref]
+          @local_restore = refs[ref]
+        elsif refs.any? { |sha| sha == ref }
+          @local_restore = ref
+        elsif refs[:_anon].include?(ref)
+          @local_restore = ref
+        end
+      end
+      
+      if @local_restore
+        return
+      end
+      
+      puts "Ref (#{ref}) was not found."
+      exit 1
+      
+    end
+    
+    if @current_ref and @local_restore == @current_ref
+      puts "Already at #{@current_ref}"
+      exit 1
+    end
+  end
+
   def restore(ref)
     storage_config       = @config.storage_config
     remote               = storage_config[:remote]
@@ -117,59 +200,102 @@ class Spare::Storage::Git
     ENV['GIT_WORK_TREE'] = File.expand_path(".")
     timestamp = Time.now.strftime("%Y%m%d%H%M%S")
 
-    unless File.directory?(ENV['GIT_DIR'])
-      return unless git(:init, '.')
+    if @fetch_ref
+      git(:fetch, '--depth=4', remote, @fetch_ref)
     end
 
-    rem_ref = nil
-    git('ls-remote', '--heads', '--tags', remote) do |s, o|
-      rem_ref = o.strip if s == 0
-    end
+    remote_tags = get_remote_tags(remote)
 
-    if rem_ref
-      rem_ref = rem_ref.split("\n").map do |line|
-        line.split(/\s+/, 2).reverse
-      end.flatten
-
-      rem_ref = Hash[*rem_ref]
-      rem_ref = rem_ref[ref]
-    end
-
-    old_ref = git(:log, '-n', 1, '--format=format:%H', 'master')
-
-    if rem_ref and rem_ref == old_ref
-      puts "Already at #{rem_ref}"
-      return
-    end
-
-    if ref == old_ref
-      puts "Already at #{ref}"
-      return
-    end
-
-    git(:fetch, '--force', remote, "#{branch}:origin/master")
-
-    if old_ref
+    @current_ref = git(:log, '-n', 1, '--format=format:%H', 'master')
+    if @current_ref and !remote_tags.values.include?(@current_ref)
       message = <<-EOM
       Restoring a backup (at #{timestamp})
         remote: #{remote}
         branch: #{branch}
-       old ref: #{old_ref}
-       new ref: #{ref}
+       old ref: #{@current_ref}
+       new ref: #{@local_restore}
       EOM
       message = message.gsub(/^      /m, '').strip
 
       git(:tag, '-a', '-m', message, timestamp)
       git(:push, remote, '--tags')
-      git(:push, remote, ":#{branch}")
     end
 
-    puts git(:log, 'origin/master')
-    git(:reset, '--hard', ref)
-    git(:push, remote, "master:#{branch}")
+    git(:reset, '--hard', @local_restore)
+    git(:push, remote, "master:#{branch}", '--force')
   end
 
 private
+
+  def deepen_history(remote)
+    git(:fetch, '--depth=100000000', remote, 'refs/heads/*:refs/remotes/origin/*')
+  end
+
+  def get_remote_tags(remote)
+    raw = nil
+    
+    git('ls-remote', '--tags', remote) do |s, o|
+      return false unless s == 0
+      raw = o.strip 
+    end
+
+    refs = raw.split("\n").map do |line|
+      line.split(/\s+/, 2).reverse
+    end.flatten
+    
+    Hash[*refs]
+  end
+
+  def get_remote_refs(remote)
+    raw = nil
+    
+    git('ls-remote', '--heads', '--tags', remote) do |s, o|
+      return false unless s == 0
+      raw = o.strip 
+    end
+
+    refs = raw.split("\n").map do |line|
+      line.split(/\s+/, 2).reverse
+    end.flatten
+    
+    Hash[*refs]
+  end
+  
+  def get_local_refs(all=false)
+    raw = nil
+    
+    which = (all ? '--all' : 'master')
+    
+    git('rev-list', '--format=tformat:%d', which) do |s, o|
+      return false unless s == 0
+      raw = o.strip 
+    end
+    
+    shas = {}
+    raw.split("\n").inject(nil) do |last, line|
+      case line
+      when /^commit (.+)$/
+        shas[$1] = []
+        $1
+      when /^ \(([^)]+)\)$/
+        shas[last].concat $1.split(', ')
+        last
+      end
+    end
+    
+    refs = { :_anon => [] }
+    shas.each do |sha, names|
+      if names.empty?
+        refs[:_anon] << sha
+      else
+        names.each do |name|
+          refs[name] = sha
+        end
+      end
+    end
+    
+    refs
+  end
 
   def sh(*cmd)
     cmd = cmd.flatten.compact.map { |i| i.to_s }

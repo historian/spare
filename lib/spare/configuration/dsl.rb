@@ -7,7 +7,6 @@ class Spare::Configuration::DSL
   
   def storage(type, &block)
     storage = Spare::Storage.adapters[type.to_sym]
-    @config.storage = storage
     
     config = (storage.const_get('Configuration') rescue nil)
     if config
@@ -15,6 +14,8 @@ class Spare::Configuration::DSL
       config.instance_eval(&block)
       @config.storage_config = config.to_options
     end
+    
+    @config.storage = storage.new(@config)
     
     self
   end
