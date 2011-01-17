@@ -241,10 +241,12 @@ private
     refs.delete('HEAD')
     refs.delete('master')
     
-    refs.each do |(ref, sha)|
+    refs.each do |(ref, _)|
       ref = git('rev-parse', '--symbolic-full-name', ref)
       next unless ref
-      git('update-ref', '-d', ref, sha)
+      
+      ref = ref.strip
+      git('update-ref', '-d', ref)
     end
     
     last_ref = git(:log, '-n', 1, '--skip', 5, '--format=format:%H', 'master')
