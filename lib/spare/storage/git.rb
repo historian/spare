@@ -9,6 +9,7 @@ class Spare::Storage::Git
   end
 
   def backup
+    
     storage_config       = @config.storage_config
     ENV['GIT_DIR']       = File.expand_path(storage_config[:repository])
     ENV['GIT_WORK_TREE'] = File.expand_path(".")
@@ -104,6 +105,11 @@ class Spare::Storage::Git
       return
     end
 
+    if $actual_task == 'restore'
+      puts "defer push"
+      return
+    end
+    
     remote = storage_config[:remote]
     branch = storage_config[:branch]
     git(:push, remote, "master:#{branch}")
@@ -112,6 +118,8 @@ class Spare::Storage::Git
   end
 
   def validate_restore(ref)
+    $actual_task = 'restore'
+    
     storage_config       = @config.storage_config
     remote               = storage_config[:remote]
     branch               = storage_config[:branch]
@@ -128,6 +136,12 @@ class Spare::Storage::Git
       if refs and refs[ref]
         @fetch_ref     = ref
         @local_restore = refs[ref]
+      elsif refs and refs["refs/heads/#{ref}"]
+        @fetch_ref     = ref
+        @local_restore = refs["refs/heads/#{ref}"]
+      elsif refs and refs["refs/tags/#{ref}"]
+        @fetch_ref     = ref
+        @local_restore = refs["refs/tags/#{ref}"]
       end
       
       if @local_restore
@@ -160,6 +174,12 @@ class Spare::Storage::Git
       if refs and refs[ref]
         @fetch_ref     = ref
         @local_restore = refs[ref]
+      elsif refs and refs["refs/heads/#{ref}"]
+        @fetch_ref     = ref
+        @local_restore = refs["refs/heads/#{ref}"]
+      elsif refs and refs["refs/tags/#{ref}"]
+        @fetch_ref     = ref
+        @local_restore = refs["refs/tags/#{ref}"]
       end
       
       if @local_restore
@@ -205,7 +225,7 @@ class Spare::Storage::Git
     timestamp = Time.now.strftime("%Y%m%d%H%M%S")
 
     if @fetch_ref
-      git(:fetch, '--depth=4', remote, @fetch_ref)
+      git(:fetch, '--depth=5', remote, @fetch_ref)
     end
 
     remote_tags = get_remote_tags(remote)
@@ -253,7 +273,7 @@ private
     
     last_ref = git(:log, '-n', 1, '--skip', 5, '--format=format:%H', 'master')
     
-    if last_ref
+    if last_ref and last_ref.strip != ""
       File.open(File.join(ENV['GIT_DIR'], 'shallow'), 'w+') do |file|
         file.puts last_ref
       end
