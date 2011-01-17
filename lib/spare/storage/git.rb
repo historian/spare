@@ -236,7 +236,7 @@ private
     remote         = storage_config[:remote]
     branch         = storage_config[:branch]
     
-    refs = get_local_refs(all)
+    refs = get_local_refs(true)
     refs.delete(:_anon)
     refs.delete('HEAD')
     refs.delete('master')
