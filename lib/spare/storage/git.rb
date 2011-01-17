@@ -181,12 +181,14 @@ class Spare::Storage::Git
         return
       end
       
+      cleanup
       puts "Ref (#{ref}) was not found."
       exit 1
       
     end
     
     if @current_ref and @local_restore == @current_ref
+      cleanup
       puts "Already at #{@current_ref}"
       exit 1
     end
@@ -223,9 +225,39 @@ class Spare::Storage::Git
 
     git(:reset, '--hard', @local_restore)
     git(:push, remote, "master:#{branch}", '--force')
+    
+    cleanup
   end
 
 private
+
+  def cleanup
+    storage_config = @config.storage_config
+    remote         = storage_config[:remote]
+    branch         = storage_config[:branch]
+    
+    refs = get_local_refs(all)
+    refs.delete(:_anon)
+    refs.delete('HEAD')
+    refs.delete('master')
+    
+    refs.each do |(ref, sha)|
+      ref = git('rev-parse', '--symbolic-full-name', ref)
+      next unless ref
+      git('update-ref', '-d', ref, sha)
+    end
+    
+    last_ref = git(:log, '-n', 1, '--skip', 5, '--format=format:%H', 'master')
+    if last_ref
+      File.open(File.join(ENV['GIT_DIR'], 'shallow'), 'w+') do |file|
+        file.puts last_ref
+      end
+      
+      git(:gc)
+      git(:prune)
+      git(:fsck)
+    end
+  end
 
   def deepen_history(remote)
     git(:fetch, '--depth=100000000', remote, 'refs/heads/*:refs/remotes/origin/*')
