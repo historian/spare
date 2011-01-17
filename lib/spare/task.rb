@@ -4,7 +4,7 @@ class Spare::Task
     @base_name = base_name
 
     if Rake.application.current_scope.empty?
-      Rake.application.in_namespace 'data' do
+      Rake.application.in_namespace 'backup' do
         install_master_tasks
         instance_eval(&block) if block
       end
@@ -16,7 +16,7 @@ class Spare::Task
 
   def before_backup(*args, &block)
     task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("before_backup" => task.name)
+    Rake::Task.define_task("before_push" => task.name)
     task
   end
 
@@ -29,13 +29,13 @@ class Spare::Task
 
   def after_backup(*args, &block)
     task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("after_backup" => task.name)
+    Rake::Task.define_task("after_push" => task.name)
     task
   end
 
   def before_restore(*args, &block)
     task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("before_restore" => task.name)
+    Rake::Task.define_task("before_pull" => task.name)
     task
   end
 
@@ -48,7 +48,7 @@ class Spare::Task
 
   def after_restore(*args, &block)
     task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("after_restore" => task.name)
+    Rake::Task.define_task("after_pull" => task.name)
     task
   end
 
@@ -61,45 +61,45 @@ private
       raise "No configuration for #{name} tasks"
     end
 
-    name = [name, 'backup'].flatten.join(':')
+    name = [name, 'push'].flatten.join(':')
 
     unless Rake::Task.task_defined?(name)
-      t = Rake::Task.define_task('backup')
-      t.add_description "Make a new backup"
+      t = Rake::Task.define_task('push')
+      t.add_description "Make a new backup and push it to the server."
 
-      t = Rake::Task.define_task('restore')
-      t.add_description "Restore a backup"
+      t = Rake::Task.define_task('pull', [:ref])
+      t.add_description "Pull a backup and restore its content."
 
-      Rake::Task.define_task("before_backup")
-      Rake::Task.define_task("checkin_backup" => 'before_backup')
-      Rake::Task.define_task("real_backup"    => 'checkin_backup')
-      Rake::Task.define_task("after_backup"   => 'real_backup')
-      Rake::Task.define_task("backup"         => 'after_backup')
+      Rake::Task.define_task("before_push")
+      Rake::Task.define_task("checkin_backup" => 'before_push')
+      Rake::Task.define_task("backup"         => 'checkin_backup')
+      Rake::Task.define_task("after_push"     => 'backup')
+      Rake::Task.define_task("push"           => 'after_push')
 
-      Rake::Task.define_task('validate_restore')
-      Rake::Task.define_task('before_restore'   => 'validate_restore')
-      Rake::Task.define_task("real_restore"     => 'before_restore')
-      Rake::Task.define_task("checkout_restore" => 'real_restore')
-      Rake::Task.define_task("after_restore"    => 'checkout_restore')
-      Rake::Task.define_task("restore"          => 'after_restore')
+      Rake::Task.define_task('validate_pull')
+      Rake::Task.define_task('before_pull'      => 'validate_pull')
+      Rake::Task.define_task("restore"          => 'before_pull')
+      Rake::Task.define_task("checkout_restore" => 'restore')
+      Rake::Task.define_task("after_pull"       => 'checkout_restore')
+      Rake::Task.define_task("pull"             => 'after_pull')
 
-      Rake::Task.define_task('real_backup') do
+      Rake::Task.define_task('backup') do
         @config.storage.backup
       end
 
-      Rake::Task.define_task('real_restore', [:ref]) do |t, args|
+      Rake::Task.define_task('restore', [:ref]) do |t, args|
         @config.storage.restore(args[:ref])
       end
 
-      Rake::Task.define_task('validate_restore', [:ref]) do |t, args|
+      Rake::Task.define_task('validate_pull', [:ref]) do |t, args|
         unless args[:ref]
           puts "Please provide a REF=<> argument"
           exit 1
         end
         @config.storage.validate_restore(args[:ref])
       end
-      
-      Rake::Task.define_task('before_restore' => 'backup')
+
+      Rake::Task.define_task('before_pull' => 'push')
 
     end
   end
