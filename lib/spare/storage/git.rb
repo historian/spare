@@ -5,9 +5,7 @@ class Spare::Storage::Git < Spare::Storage::Base
   require 'shellwords'
   SH = ::Shellwords
   
-  def initialize(*)
-    super
-
+  def setup
     ENV['GIT_DIR']       = File.expand_path(repository)
     ENV['GIT_WORK_TREE'] = File.expand_path(".")
 

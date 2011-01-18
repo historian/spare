@@ -7,6 +7,10 @@ class Spare::Storage::Base
     @storage_config = @config.storage_config
   end
 
+  def setup
+    raise NotImplemented
+  end
+
   def backup
     raise NotImplemented
   end

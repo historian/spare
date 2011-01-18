@@ -18,6 +18,8 @@ class Spare::Storage
   end
 
   def backup
+    setup
+    
     files = @config.backup_tasks.map do |_, task|
       task.resolve_files
     end.flatten
@@ -33,6 +35,8 @@ class Spare::Storage
   end
 
   def restore(ref)
+    setup
+    
     backup = find_backup(ref, :local)
 
     unless backup
@@ -45,6 +49,8 @@ class Spare::Storage
   end
 
   def update
+    setup
+    
     non_remote_backups = all_backups.select do |backup|
       !backup.locations.include?(:remote)
     end
@@ -60,6 +66,8 @@ class Spare::Storage
   end
 
   def fetch(ref)
+    setup
+    
     backup = find_backup(ref, :all)
 
     unless backup
@@ -77,12 +85,16 @@ class Spare::Storage
   end
 
   def prune
+    setup
+    
     @adapter.prune
   ensure
     @local_backups = @all_backups = nil
   end
 
   def list_local
+    setup
+    
     puts "Local backups:"
     local_backups.each do |backup|
       puts "  #{backup}"
@@ -90,6 +102,8 @@ class Spare::Storage
   end
 
   def list_remote
+    setup
+    
     puts "Remote backups:"
     remote_backups.each do |backup|
       puts "  #{backup}"
@@ -97,6 +111,8 @@ class Spare::Storage
   end
 
   def list_all
+    setup
+    
     puts "All backups:"
     all_backups.each do |backup|
       puts "  #{backup}"
@@ -104,6 +120,13 @@ class Spare::Storage
   end
 
 private
+
+  def setup
+    @is_setup ||= begin
+      @adapter.setup
+      true
+    end
+  end
 
   def find_backup(ref, location=:local)
     case location
