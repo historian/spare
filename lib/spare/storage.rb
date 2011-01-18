@@ -44,7 +44,7 @@ class Spare::Storage
     @local_backups = @all_backups = nil
   end
 
-  def send
+  def update
     non_remote_backups = all_backups.select do |backup|
       !backup.locations.include?(:remote)
     end
@@ -54,7 +54,7 @@ class Spare::Storage
       return true
     end
     
-    @adapter.send(non_remote_backups)
+    @adapter.update(non_remote_backups)
   ensure
     @remote_backups = @all_backups = nil
   end

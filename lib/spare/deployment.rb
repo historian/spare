@@ -72,13 +72,13 @@ module Spare
           N.B. backup_roles must be defined before you \
           require 'spare/#{context_name}' in your deploy.rb file.
   
-            set :spare_send_task, "backup:send"
-            set :rake_cmd,        "rake" # e.g. "/opt/ruby/bin/rake"
-            set :backup_roles,    #{role_default} # e.g. [:app, :batch]
+            set :spare_update_task, "backup:update"
+            set :rake_cmd,          "rake" # e.g. "/opt/ruby/bin/rake"
+            set :backup_roles,      #{role_default} # e.g. [:app, :batch]
         DESC
         send task_method, :update, opts do
-          rake_cmd  = context.fetch(:rake_cmd,        "rake")
-          rake_task = context.fetch(:spare_send_task, "backup:send")
+          rake_cmd  = context.fetch(:rake_cmd,          "rake")
+          rake_task = context.fetch(:spare_update_task, "backup:update")
   
           run "#{rake_cmd} #{rake_task}"
         end

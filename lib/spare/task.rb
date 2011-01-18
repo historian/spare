@@ -69,7 +69,7 @@ private
       t = Rake::Task.define_task('fetch', [:ref])
       t.add_description "Fetch a backup from the remote server."
 
-      t = Rake::Task.define_task('send')
+      t = Rake::Task.define_task('update')
       t.add_description "Send a backup to the remote server."
 
       t = Rake::Task.define_task('push')
@@ -114,8 +114,8 @@ private
         @config.storage.restore(args[:ref])
       end
 
-      Rake::Task.define_task('send') do
-        @config.storage.send
+      Rake::Task.define_task('update') do
+        @config.storage.update
       end
 
       Rake::Task.define_task('fetch', [:ref]) do |t, args|

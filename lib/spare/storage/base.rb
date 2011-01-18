@@ -15,7 +15,7 @@ class Spare::Storage::Base
     raise NotImplemented
   end
 
-  def send(backup)
+  def update(backups)
     raise NotImplemented
   end
 

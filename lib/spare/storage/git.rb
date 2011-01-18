@@ -102,7 +102,7 @@ class Spare::Storage::Git < Spare::Storage::Base
     @head = nil
   end
 
-  def send(backups)
+  def update(backups)
     backups = backups.select do |backup|
       !backup.aliases.empty?
     end
