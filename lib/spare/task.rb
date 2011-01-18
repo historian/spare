@@ -60,8 +60,8 @@ private
     name = [name, 'push'].flatten.join(':')
 
     unless Rake::Task.task_defined?(name)
-      t = Rake::Task.define_task('backup')
-      t.add_description "Make a new backup."
+      t = Rake::Task.define_task('create')
+      t.add_description "Create a new backup."
 
       t = Rake::Task.define_task('restore', [:ref])
       t.add_description "Restore a backup."
@@ -98,7 +98,7 @@ private
       Rake::Task.define_task("checkin_backup" => 'before_backup')
       Rake::Task.define_task("real_backup"    => 'checkin_backup')
       Rake::Task.define_task("after_backup"   => 'real_backup')
-      Rake::Task.define_task("backup"         => 'after_backup')
+      Rake::Task.define_task("create"         => 'after_backup')
 
       Rake::Task.define_task('before_restore')
       Rake::Task.define_task("real_restore"     => 'before_restore')
@@ -139,7 +139,7 @@ private
       end
 
       Rake::Task.define_task("pull" => ['fetch', 'restore'])
-      Rake::Task.define_task("push" => ['backup', 'send'])
+      Rake::Task.define_task("push" => ['create', 'send'])
 
     end
   end
