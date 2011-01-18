@@ -14,42 +14,38 @@ class Spare::Task
     end
   end
 
-  def before_backup(*args, &block)
-    task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("before_push" => task.name)
-    task
+  def before_backup(deps=[], &block)
+    Rake::Task.define_task("before_backup" => deps, &block)
+    self
   end
 
   def backup(&block)
     task = Spare::BackupTask.define_task("#{@base_name}:backup", &block)
     @config.backup_tasks[task.name] = task
     Rake::Task.define_task("checkin_backup" => task.name)
-    task
+    self
   end
 
-  def after_backup(*args, &block)
-    task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("after_push" => task.name)
-    task
+  def after_backup(deps=[], &block)
+    Rake::Task.define_task("after_backup" => deps, &block)
+    self
   end
 
-  def before_restore(*args, &block)
-    task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("before_pull" => task.name)
-    task
+  def before_restore(deps=[], &block)
+    Rake::Task.define_task("before_restore" => deps, &block)
+    self
   end
 
   def restore(&block)
     task = Spare::RestoreTask.define_task("#{@base_name}:restore", &block)
     @config.restore_tasks[task.name] = task
     Rake::Task.define_task("checkout_restore" => task.name)
-    task
+    self
   end
 
-  def after_restore(*args, &block)
-    task = Rake::Task.define_task(*args, &block)
-    Rake::Task.define_task("after_pull" => task.name)
-    task
+  def after_restore(deps=[], &block)
+    Rake::Task.define_task("after_restore" => deps, &block)
+    self
   end
 
 private
@@ -64,42 +60,92 @@ private
     name = [name, 'push'].flatten.join(':')
 
     unless Rake::Task.task_defined?(name)
+      t = Rake::Task.define_task('backup')
+      t.add_description "Make a new backup."
+
+      t = Rake::Task.define_task('restore', [:ref])
+      t.add_description "Restore a backup."
+
+      t = Rake::Task.define_task('fetch', [:ref])
+      t.add_description "Fetch a backup from the remote server."
+
+      t = Rake::Task.define_task('send', [:ref])
+      t.add_description "Send a backup to the remote server."
+
       t = Rake::Task.define_task('push')
       t.add_description "Make a new backup and push it to the server."
 
       t = Rake::Task.define_task('pull', [:ref])
       t.add_description "Pull a backup and restore its content."
 
-      Rake::Task.define_task("before_push")
-      Rake::Task.define_task("checkin_backup" => 'before_push')
-      Rake::Task.define_task("backup"         => 'checkin_backup')
-      Rake::Task.define_task("after_push"     => 'backup')
-      Rake::Task.define_task("push"           => 'after_push')
+      t = Rake::Task.define_task('clean')
+      t.add_description "Remove unused backups from the local repository."
 
-      Rake::Task.define_task('validate_pull')
-      Rake::Task.define_task('before_pull'      => 'validate_pull')
-      Rake::Task.define_task("restore"          => 'before_pull')
-      Rake::Task.define_task("checkout_restore" => 'restore')
-      Rake::Task.define_task("after_pull"       => 'checkout_restore')
-      Rake::Task.define_task("pull"             => 'after_pull')
+      Rake.application.in_namespace 'list' do
 
-      Rake::Task.define_task('backup') do
+        t = Rake::Task.define_task('local')
+        t.add_description "List local backups."
+
+        t = Rake::Task.define_task('remote')
+        t.add_description "List remote backups."
+
+        t = Rake::Task.define_task('all')
+        t.add_description "List all backups."
+
+      end
+
+      Rake::Task.define_task("before_backup")
+      Rake::Task.define_task("checkin_backup" => 'before_backup')
+      Rake::Task.define_task("real_backup"    => 'checkin_backup')
+      Rake::Task.define_task("after_backup"   => 'real_backup')
+      Rake::Task.define_task("backup"         => 'after_backup')
+
+      Rake::Task.define_task('before_restore')
+      Rake::Task.define_task("real_restore"     => 'before_restore')
+      Rake::Task.define_task("checkout_restore" => 'real_restore')
+      Rake::Task.define_task("after_restore"    => 'checkout_restore')
+      Rake::Task.define_task("restore"          => 'after_restore')
+
+      Rake::Task.define_task('real_backup') do
         @config.storage.backup
       end
 
-      Rake::Task.define_task('restore', [:ref]) do |t, args|
+      Rake::Task.define_task('real_restore', [:ref]) do |t, args|
         @config.storage.restore(args[:ref])
       end
 
-      Rake::Task.define_task('validate_pull', [:ref]) do |t, args|
-        unless args[:ref]
-          puts "Please provide a REF=<> argument"
-          exit 1
-        end
-        @config.storage.validate_restore(args[:ref])
+      Rake::Task.define_task('send', [:ref]) do |t, args|
+        @config.storage.send(args[:ref])
       end
 
-      Rake::Task.define_task('before_pull' => 'push')
+      Rake::Task.define_task('fetch', [:ref]) do |t, args|
+        @config.storage.fetch(args[:ref])
+      end
+
+      Rake::Task.define_task('list:local') do
+        @config.storage.list_local
+      end
+
+      Rake::Task.define_task('list:remote') do
+        @config.storage.list_remote
+      end
+
+      Rake::Task.define_task('list:all') do
+        @config.storage.list_all
+      end
+
+      Rake::Task.define_task("pull" => ['fetch', 'restore'])
+      Rake::Task.define_task("push" => ['backup', 'send'])
+
+      # Rake::Task.define_task('validate_restore', [:ref]) do |t, args|
+      #   unless args[:ref]
+      #     puts "Please provide a REF=<> argument"
+      #     exit 1
+      #   end
+      #   @config.storage.validate_restore(args[:ref])
+      # end
+      #
+      # Rake::Task.define_task('before_restore' => 'backup')
 
     end
   end
