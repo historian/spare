@@ -69,7 +69,7 @@ private
       t = Rake::Task.define_task('fetch', [:ref])
       t.add_description "Fetch a backup from the remote server."
 
-      t = Rake::Task.define_task('send', [:ref])
+      t = Rake::Task.define_task('send')
       t.add_description "Send a backup to the remote server."
 
       t = Rake::Task.define_task('push')
@@ -78,7 +78,7 @@ private
       t = Rake::Task.define_task('pull', [:ref])
       t.add_description "Pull a backup and restore its content."
 
-      t = Rake::Task.define_task('clean')
+      t = Rake::Task.define_task('prune')
       t.add_description "Remove unused backups from the local repository."
 
       Rake.application.in_namespace 'list' do
@@ -114,12 +114,16 @@ private
         @config.storage.restore(args[:ref])
       end
 
-      Rake::Task.define_task('send', [:ref]) do |t, args|
-        @config.storage.send(args[:ref])
+      Rake::Task.define_task('send') do
+        @config.storage.send
       end
 
       Rake::Task.define_task('fetch', [:ref]) do |t, args|
         @config.storage.fetch(args[:ref])
+      end
+
+      Rake::Task.define_task('prune') do
+        @config.storage.prune
       end
 
       Rake::Task.define_task('list:local') do
@@ -136,16 +140,6 @@ private
 
       Rake::Task.define_task("pull" => ['fetch', 'restore'])
       Rake::Task.define_task("push" => ['backup', 'send'])
-
-      # Rake::Task.define_task('validate_restore', [:ref]) do |t, args|
-      #   unless args[:ref]
-      #     puts "Please provide a REF=<> argument"
-      #     exit 1
-      #   end
-      #   @config.storage.validate_restore(args[:ref])
-      # end
-      #
-      # Rake::Task.define_task('before_restore' => 'backup')
 
     end
   end

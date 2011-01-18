@@ -26,5 +26,4 @@ class Spare::Configuration
   attr_reader :name, :restore_tasks, :backup_tasks
   attr_accessor :storage, :storage_config
 
-
 end

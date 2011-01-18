@@ -12,19 +12,12 @@ module Spare
   require 'spare/task'
   require 'spare/backup_task'
   require 'spare/restore_task'
-
-  module Storage
-
-    def self.adapters
-      @adapters ||= { :git => Spare::Storage::Git }
-    end
-
-    def self.register_adapter(name, klass)
-      self.adapters[name.to_sym] = klass
-    end
-
+  require 'spare/storage'
+  
+  class Storage
+    require 'spare/storage/backup'
+    require 'spare/storage/base'
     require 'spare/storage/git'
-
   end
 
 end

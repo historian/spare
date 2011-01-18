@@ -1,12 +1,35 @@
 class Spare::Storage
 
+  class << self
+    
+    def adapters
+      @adapters ||= { :git => Spare::Storage::Git }
+    end
+
+    def register_adapter(name, klass)
+      self.adapters[name.to_sym] = klass
+    end
+    
+  end
+
   def initialize(config, adapter_class)
     @config  = config
     @adapter = adapter_class.new(config)
   end
 
   def backup
-    @adapter.backup
+    files = @config.backup_tasks.map do |_, task|
+      task.resolve_files
+    end.flatten
+    
+    if files.empty?
+      $stderr.puts "Nothing to backup"
+      return false
+    end
+    
+    @adapter.backup(files.uniq.sort)
+  ensure
+    @local_backups = @all_backups = nil
   end
 
   def restore(ref)
@@ -17,21 +40,23 @@ class Spare::Storage
     end
 
     @adapter.restore(backup)
+  ensure
+    @local_backups = @all_backups = nil
   end
 
-  def send(ref)
-    backup = find_backup(ref, :all)
-
-    unless backup
-      raise "No backup for ref: #{ref}"
+  def send
+    non_remote_backups = all_backups.select do |backup|
+      !backup.locations.include?(:remote)
     end
-
-    if backup.locations.include?(:remote)
-      puts "Already present in remote repository"
+    
+    if non_remote_backups.empty?
+      $stdout.puts "Nothing to send"
       return true
     end
-
-    @adapter.send(backup)
+    
+    @adapter.send(non_remote_backups)
+  ensure
+    @remote_backups = @all_backups = nil
   end
 
   def fetch(ref)
@@ -47,10 +72,35 @@ class Spare::Storage
     end
 
     @adapter.fetch(backup)
+  ensure
+    @local_backups = @all_backups = nil
   end
 
-  def clean
-    @adapter.clean
+  def prune
+    @adapter.prune
+  ensure
+    @local_backups = @all_backups = nil
+  end
+
+  def list_local
+    puts "Local backups:"
+    local_backups.each do |backup|
+      puts "  #{backup}"
+    end
+  end
+
+  def list_remote
+    puts "Remote backups:"
+    remote_backups.each do |backup|
+      puts "  #{backup}"
+    end
+  end
+
+  def list_all
+    puts "All backups:"
+    all_backups.each do |backup|
+      puts "  #{backup}"
+    end
   end
 
 private
@@ -95,27 +145,6 @@ private
       end
 
       refs.values
-    end
-  end
-
-  def list_local
-    puts "Local backups:"
-    local_backups.each do |backup|
-      puts "  #{backup}"
-    end
-  end
-
-  def list_remote
-    puts "Remote backups:"
-    remote_backups.each do |backup|
-      puts "  #{backup}"
-    end
-  end
-
-  def list_all
-    puts "All backups:"
-    all_backups.each do |backup|
-      puts "  #{backup}"
     end
   end
 

@@ -1,5 +1,5 @@
 class Spare::Storage::Base
-
+  
   attr_reader :config, :storage_config
 
   def initialize(config)
@@ -31,7 +31,7 @@ class Spare::Storage::Base
     raise NotImplemented
   end
 
-  def clean
+  def prune
     raise NotImplemented
   end
 

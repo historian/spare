@@ -19,13 +19,13 @@ class Spare::Storage::Backup
   end
 
   def dup
-    self.class.new(@name, @aliases, @aliases)
+    self.class.new(@name, @aliases, @locations)
   end
 
   def to_s
-    alias_list    = "(#{@aliases.join(', ')})"   unless @aliases.emtpy?
-    location_list = "[#{@locations.join(', ')}]" unless @locations.emtpy?
-    [@name, alias_list, location_list].join(' ')
+    alias_list    = "(#{@aliases.join(', ')})"   unless @aliases.empty?
+    location_list = "[#{@locations.join(', ')}]" unless @locations.empty?
+    [@name, alias_list, location_list].compact.join(' ')
   end
 
 end

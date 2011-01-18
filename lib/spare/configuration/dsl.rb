@@ -1,5 +1,7 @@
 class Spare::Configuration::DSL
   
+  require 'ostruct'
+  
   def initialize(config, &block)
     @config = config
     instance_eval(&block)
@@ -8,14 +10,10 @@ class Spare::Configuration::DSL
   def storage(type, &block)
     storage = Spare::Storage.adapters[type.to_sym]
     
-    config = (storage.const_get('Configuration') rescue nil)
-    if config
-      config = config.new
-      config.instance_eval(&block)
-      @config.storage_config = config.to_options
-    end
+    @config.storage_config = OpenStruct.new
+    block.call(@config.storage_config) if block
     
-    @config.storage = storage.new(@config)
+    @config.storage = Spare::Storage.new(@config, storage)
     
     self
   end
