@@ -169,6 +169,7 @@ class Spare::Storage::Git < Spare::Storage::Base
     end
 
     system "git gc"
+    system "git prune"
     
     true
   ensure
