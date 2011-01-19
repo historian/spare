@@ -51,19 +51,19 @@ class Spare::Task
 private
 
   def install_master_tasks
-    name    = Rake.application.current_scope.join(':')
-    @config = Spare.configurations[name]
+    namespace = Rake.application.current_scope.join(':')
+    @config   = Spare.configurations[namespace]
     unless @config
-      raise "No configuration for #{name} tasks"
+      raise "No configuration for #{namespace} tasks"
     end
 
-    name = [name, 'push'].flatten.join(':')
+    name = [namespace, 'push'].flatten.join(':')
 
     unless Rake::Task.task_defined?(name)
       t = Rake::Task.define_task('create')
       t.add_description "Create a new backup."
 
-      t = Rake::Task.define_task('restore', [:ref])
+      t = Rake::Task.define_task('restore', [:ref, :hard])
       t.add_description "Restore a backup."
 
       t = Rake::Task.define_task('fetch', [:ref])
@@ -75,7 +75,7 @@ private
       t = Rake::Task.define_task('push')
       t.add_description "Make a new backup and push it to the server."
 
-      t = Rake::Task.define_task('pull', [:ref])
+      t = Rake::Task.define_task('pull', [:ref, :hard])
       t.add_description "Pull a backup and restore its content."
 
       t = Rake::Task.define_task('prune')
@@ -100,7 +100,8 @@ private
       Rake::Task.define_task("after_backup"   => 'real_backup')
       Rake::Task.define_task("create"         => 'after_backup')
 
-      Rake::Task.define_task('before_restore')
+      Rake::Task.define_task('backup_before_restore')
+      Rake::Task.define_task('before_restore'   => 'backup_before_restore')
       Rake::Task.define_task("real_restore"     => 'before_restore')
       Rake::Task.define_task("checkout_restore" => 'real_restore')
       Rake::Task.define_task("after_restore"    => 'checkout_restore')
@@ -108,6 +109,12 @@ private
 
       Rake::Task.define_task('real_backup') do
         @config.storage.backup
+      end
+
+      Rake::Task.define_task('backup_before_restore', [:hard]) do |t, args|
+        unless args[:hard] == 'true'
+          Rake::Task["#{namespace}:create"].invoke
+        end
       end
 
       Rake::Task.define_task('real_restore', [:ref]) do |t, args|
