@@ -7,10 +7,10 @@ class Spare::Storage::Git < Spare::Storage::Base
 
   def setup
     ENV['GIT_DIR']       = File.expand_path(repository)
-    ENV['GIT_WORK_TREE'] = File.expand_path(".")
+    ENV['GIT_WORK_TREE'] = stage
 
     unless File.directory?(ENV['GIT_DIR'])
-      system "git init ."
+      system "git init #{stage}"
       unless $?.exitstatus == 0
         raise "Failed to init git repo"
       end
@@ -18,8 +18,8 @@ class Spare::Storage::Git < Spare::Storage::Base
   end
 
   def backup(files)
-    symlinks = find_symlinks(files)
-    replace_symlinks_with_hardlinks(symlinks)
+    ensure_stage_exists
+    stage_files(files)
     
     changes = determine_changed_files(files)
 
@@ -32,7 +32,7 @@ class Spare::Storage::Git < Spare::Storage::Base
     changes.each do |(status, path)|
       case status
       when 'M', 'A'
-        `git add --force #{SH.escape(path)}`
+        `git add --force #{SH.escape(File.expand_path(path, stage))}`
         unless $?.exitstatus == 0
           $stderr.puts "Failed to add '#{path}'"
         else
@@ -61,11 +61,12 @@ class Spare::Storage::Git < Spare::Storage::Base
     system "git commit -m #{SH.escape(message)}"
     $?.exitstatus != 0
   ensure
-    replace_hardlinks_with_symlinks(symlinks)
+    clear_stage
     @head = @local_backups = nil
   end
 
   def restore(backup)
+    ensure_stage_exists
     lines = `git tag --contains #{head}`
     if $?.exitstatus == 0
       needs_a_tag = (lines.strip.length == 0)
@@ -98,20 +99,20 @@ class Spare::Storage::Git < Spare::Storage::Base
       @local_backups = nil
     end
     
-    symlinks = nil
     files = `git ls-tree --name-only --full-tree -r #{SH.escape(backup.name)}`
     if $?.exitstatus == 0
       files = files.strip.split("\n")
-      symlinks = find_symlinks(files)
-      replace_symlinks_with_hardlinks(symlinks)
     else
       return false
     end
 
     system "git reset --hard #{SH.escape(backup.name)}"
+    
+    unstage_files(files)
+    
     $?.exitstatus == 0
   ensure
-    replace_hardlinks_with_symlinks(symlinks) if symlinks
+    clear_stage
     @head = nil
   end
 
@@ -251,6 +252,10 @@ private
   def repository
     storage_config.repository || 'tmp/backup.git'
   end
+  
+  def stage
+    @stage ||= File.expand_path('spare_stage', File.expand_path(repository))
+  end
 
   def determine_changed_files(files)
     remaining_files = files.dup
@@ -292,55 +297,45 @@ private
     end
 
     remaining_files.each do |path|
-      next unless File.file?(path)
+      next unless File.file?(File.expand_path(path, stage))
       changes << ['A', path]
     end
 
     changes.uniq
   end
   
-  def find_symlinks(files)
-    checked_paths = {}
-    symlinks      = {}
-    
-    root = File.expand_path('.')
-    
+  def stage_files(files)
     files.each do |path|
-      find_symlinks_in_path(root, path, checked_paths, symlinks)
+      if File.file?(path)
+        target = File.expand_path(path, stage)
+        FileUtils.mkdir_p(File.dirname(target))
+        File.link(path, target)
+      end
     end
-    
-    symlinks
   end
   
-  def find_symlinks_in_path(root, path, checked_paths, symlinks)
-    path = File.expand_path(path)
-    
-    until path == root
-      return if checked_paths.key?(path)
+  def unstage_files(files)
+    files.each do |path|
+      src = File.expand_path(path, stage)
       
-      if File.symlink?(path)
-        link   = File.readlink(path)
-        target = File.expand_path(link, File.dirname(path))
-        symlinks[path] = [target, link]
+      if File.file?(path)
+        File.unlink(path)
+      elsif File.exists?(path) # not a file
+        puts "Skiped #{path} (not a file)"
+        next
       end
       
-      checked_paths[path] = true
-      path = File.dirname(path)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.link(src, path)
     end
   end
   
-  def replace_symlinks_with_hardlinks(symlinks)
-    symlinks.each do |path, (target, link)|
-      File.unlink(path)
-      File.link(target, path)
-    end
+  def ensure_stage_exists
+    FileUtils.mkdir_p(stage)
   end
   
-  def replace_hardlinks_with_symlinks(symlinks)
-    symlinks.each do |path, (target, link)|
-      File.unlink(path)
-      File.symlink(link, path)
-    end
+  def clear_stage
+    FileUtils.rm_rf(stage)
   end
 
 end
