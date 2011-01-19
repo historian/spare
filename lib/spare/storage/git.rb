@@ -18,6 +18,9 @@ class Spare::Storage::Git < Spare::Storage::Base
   end
 
   def backup(files)
+    symlinks = find_symlinks(files)
+    replace_symlinks_with_hardlinks(symlinks)
+    
     changes = determine_changed_files(files)
 
     if changes.empty?
@@ -58,6 +61,7 @@ class Spare::Storage::Git < Spare::Storage::Base
     system "git commit -m #{SH.escape(message)}"
     $?.exitstatus != 0
   ensure
+    replace_hardlinks_with_symlinks(symlinks)
     @head = @local_backups = nil
   end
 
@@ -93,10 +97,21 @@ class Spare::Storage::Git < Spare::Storage::Base
 
       @local_backups = nil
     end
+    
+    symlinks = nil
+    files = `git ls-tree --name-only --full-tree -r #{SH.escape(backup.name)}`
+    if $?.exitstatus == 0
+      files = files.strip.split("\n")
+      symlinks = find_symlinks(files)
+      replace_symlinks_with_hardlinks(symlinks)
+    else
+      return false
+    end
 
     system "git reset --hard #{SH.escape(backup.name)}"
     $?.exitstatus == 0
   ensure
+    replace_hardlinks_with_symlinks(symlinks) if symlinks
     @head = nil
   end
 
@@ -282,6 +297,50 @@ private
     end
 
     changes.uniq
+  end
+  
+  def find_symlinks(files)
+    checked_paths = {}
+    symlinks      = {}
+    
+    root = File.expand_path('.')
+    
+    files.each do |path|
+      find_symlinks_in_path(root, path, checked_paths, symlinks)
+    end
+    
+    symlinks
+  end
+  
+  def find_symlinks_in_path(root, path, checked_paths, symlinks)
+    path = File.expand_path(path)
+    
+    until path == root
+      return if checked_paths.key?(path)
+      
+      if File.symlink?(path)
+        link   = File.readlink(path)
+        target = File.expand_path(link, File.dirname(path))
+        symlinks[path] = [target, link]
+      end
+      
+      checked_paths[path] = true
+      path = File.dirname(path)
+    end
+  end
+  
+  def replace_symlinks_with_hardlinks(symlinks)
+    symlinks.each do |path, (target, link)|
+      File.unlink(path)
+      File.link(target, path)
+    end
+  end
+  
+  def replace_hardlinks_with_symlinks(symlinks)
+    symlinks.each do |path, (target, link)|
+      File.unlink(path)
+      File.symlink(link, path)
+    end
   end
 
 end
