@@ -15,6 +15,18 @@ module Spare
 
       context.send :namespace, :backup do
 
+        send task_method, :create_with_rollback, opts do
+          on_rollback { restore }
+          create
+        end
+
+        send task_method, :link_repository, opts do
+          run <<-CMD
+            rm -rf #{latest_release}/tmp/backup.git &&
+            ln -s #{shared_path}/backup.git #{latest_release}/tmp/backup.git
+          CMD
+        end
+
         send :desc, <<-DESC
           Create a new backup. This task doesn't push the backup to remote.
 

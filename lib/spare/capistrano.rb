@@ -5,6 +5,7 @@
 require 'spare/deployment'
 
 Capistrano::Configuration.instance(:must_exist).load do
-  # after "deploy:update_code", "bundle:install"
+  before "deploy:update_code",     "backup:create_with_rollback"
+  after  "deploy:finalize_update", "backup:link_repository"
   Spare::Deployment.define_task(self, :task, :except => { :no_release => true })
 end
