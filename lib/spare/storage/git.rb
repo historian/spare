@@ -141,7 +141,7 @@ class Spare::Storage::Git < Spare::Storage::Base
 
     target = backup.aliases.first
 
-    system "git fetch #{SH.escape(remote)} #{SH.escape(target)}"
+    system "git fetch #{SH.escape(remote)} #{SH.escape(target)}:refs/heads/#{SH.escape(target)}"
     $?.exitstatus == 0
 
   ensure
