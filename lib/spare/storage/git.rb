@@ -1,10 +1,10 @@
 class Spare::Storage::Git < Spare::Storage::Base
-  
+
   Spare::Storage.register_adapter(:git, self)
-  
+
   require 'shellwords'
   SH = ::Shellwords
-  
+
   def setup
     ENV['GIT_DIR']       = File.expand_path(repository)
     ENV['GIT_WORK_TREE'] = File.expand_path(".")
@@ -54,7 +54,7 @@ class Spare::Storage::Git < Spare::Storage::Base
       remote: #{remote}
       branch: #{branch}
     EOM
-    
+
     system "git commit -m #{SH.escape(message)}"
     $?.exitstatus != 0
   ensure
@@ -68,7 +68,7 @@ class Spare::Storage::Git < Spare::Storage::Base
     else
       needs_a_tag = false
     end
-    
+
     unless needs_a_tag
       line = `git rev-list --children --all | grep '^#{head}'`
       if $?.exitstatus == 0
@@ -77,7 +77,7 @@ class Spare::Storage::Git < Spare::Storage::Base
         needs_a_tag = false
       end
     end
-    
+
     if needs_a_tag
       timestamp = Time.now.strftime("%Y%m%d%H%M%S")
       message   = <<-EOM.gsub(/^      /m, '').strip
@@ -85,34 +85,34 @@ class Spare::Storage::Git < Spare::Storage::Base
         remote: #{remote}
         branch: #{branch}
       EOM
-      
+
       system "git tag -a -m #{SH.escape(message)} #{SH.escape(timestamp)}"
       if $?.exitstatus != 0
         return false
       end
-      
+
       @local_backups = nil
     end
-    
+
     system "git reset --hard #{SH.escape(backup.name)}"
     $?.exitstatus == 0
   ensure
     @head = nil
   end
 
-  def update(backups)
+  def upload(backups)
     backups = backups.select do |backup|
       !backup.aliases.empty?
     end
-    
+
     if backups.empty?
-      $stdout.puts "Nothing to send"
+      $stdout.puts "Nothing to upload"
       return true
     end
-    
+
     system "git push #{SH.escape(remote)} --tags master:#{SH.escape(branch)} --force"
     $?.exitstatus == 0
-    
+
   ensure
     @remote_backups = nil
   end
@@ -124,17 +124,17 @@ class Spare::Storage::Git < Spare::Storage::Base
     end
 
     target = backup.aliases.first
-    
+
     system "git fetch #{SH.escape(remote)} #{SH.escape(target)}"
     $?.exitstatus == 0
-    
+
   ensure
     @local_backups = nil
   end
 
   def prune
     refs = []
-    
+
     tags = `git tag`
     if $?.exitstatus == 0
       tags = tags.strip.split("\n")
@@ -143,7 +143,7 @@ class Spare::Storage::Git < Spare::Storage::Base
         refs << ref.strip if $?.exitstatus == 0
       end
     end
-    
+
     branches = `git branch -a --no-color`
     if $?.exitstatus == 0
       branches = branches.strip.split("\n")
@@ -153,12 +153,12 @@ class Spare::Storage::Git < Spare::Storage::Base
         refs << ref.strip if $?.exitstatus == 0
       end
     end
-    
+
     refs.delete('refs/heads/master')
     refs.each do |ref|
       `git update-ref -d #{ref}`
     end
-    
+
     last_ref = `git log -n 1 --skip 5 --format=%H master`
     if $?.exitstatus == 0 and last_ref.strip.length > 0
       File.open(File.join(ENV['GIT_DIR'], 'shallow'), 'w+') do |file|
@@ -168,7 +168,7 @@ class Spare::Storage::Git < Spare::Storage::Base
 
     system "git gc"
     system "git prune"
-    
+
     true
   ensure
     @local_backups = nil
@@ -177,25 +177,25 @@ class Spare::Storage::Git < Spare::Storage::Base
   def local_backups
     @local_backups ||= begin
       o = `git log --format="%H %d" --all`
-      
+
       unless $?.exitstatus == 0
         return []
       end
-      
+
       o.strip.split("\n").map do |line|
         sha, refs = line.split(/\s+/, 2)
         refs = refs ? (refs[1..-2] || "").split(', ') : []
         refs.delete('HEAD')
         Spare::Storage::Backup.new(sha, refs, [:local])
       end
-      
+
     end
   end
 
   def remote_backups
     @remote_backups ||= begin
       o = `git ls-remote #{SH.escape(remote)}`
-      
+
       unless $?.exitstatus == 0
         return []
       end
@@ -236,7 +236,7 @@ private
   def repository
     storage_config.repository || 'tmp/backup.git'
   end
-  
+
   def determine_changed_files(files)
     remaining_files = files.dup
     changes         = []
@@ -248,7 +248,7 @@ private
         line = line.strip
         status, path = line[0,1], line[2..-1].strip
         path, old_path = *path.split(/\s+\-\>\s+/, 2).reverse
-    
+
         case status
         when ' '
           # ignore
@@ -280,7 +280,7 @@ private
       next unless File.file?(path)
       changes << ['A', path]
     end
-    
+
     changes.uniq
   end
 

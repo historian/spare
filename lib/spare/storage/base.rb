@@ -1,5 +1,5 @@
 class Spare::Storage::Base
-  
+
   attr_reader :config, :storage_config
 
   def initialize(config)
@@ -19,7 +19,7 @@ class Spare::Storage::Base
     raise NotImplemented
   end
 
-  def update(backups)
+  def upload(backups)
     raise NotImplemented
   end
 

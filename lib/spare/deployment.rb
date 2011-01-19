@@ -64,22 +64,22 @@ module Spare
   
   
         send :desc, <<-DESC
-          Send any local (on the server) backups to the backup server.
-  
+          Upload any local (on the server) backups to the backup server.
+
           You can override any of these defaults by setting the variables \
           shown below.
   
           N.B. backup_roles must be defined before you \
           require 'spare/#{context_name}' in your deploy.rb file.
-  
-            set :spare_update_task, "backup:update"
+
+            set :spare_upload_task, "backup:upload"
             set :rake_cmd,          "rake" # e.g. "/opt/ruby/bin/rake"
             set :backup_roles,      #{role_default} # e.g. [:app, :batch]
         DESC
-        send task_method, :update, opts do
+        send task_method, :upload, opts do
           rake_cmd  = context.fetch(:rake_cmd,          "rake")
-          rake_task = context.fetch(:spare_update_task, "backup:update")
-  
+          rake_task = context.fetch(:spare_upload_task, "backup:upload")
+
           run "#{rake_cmd} #{rake_task}"
         end
   

@@ -1,7 +1,7 @@
 class Spare::Storage
 
   class << self
-    
+
     def adapters
       @adapters ||= { :git => Spare::Storage::Git }
     end
@@ -9,7 +9,7 @@ class Spare::Storage
     def register_adapter(name, klass)
       self.adapters[name.to_sym] = klass
     end
-    
+
   end
 
   def initialize(config, adapter_class)
@@ -19,16 +19,16 @@ class Spare::Storage
 
   def backup
     setup
-    
+
     files = @config.backup_tasks.map do |_, task|
       task.resolve_files
     end.flatten
-    
+
     if files.empty?
       $stderr.puts "Nothing to backup"
       return false
     end
-    
+
     @adapter.backup(files.uniq.sort)
   ensure
     @local_backups = @all_backups = nil
@@ -36,7 +36,7 @@ class Spare::Storage
 
   def restore(ref)
     setup
-    
+
     backup = find_backup(ref, :local)
 
     unless backup
@@ -48,26 +48,26 @@ class Spare::Storage
     @local_backups = @all_backups = nil
   end
 
-  def update
+  def upload
     setup
-    
+
     non_remote_backups = all_backups.select do |backup|
       !backup.locations.include?(:remote)
     end
-    
+
     if non_remote_backups.empty?
-      $stdout.puts "Nothing to send"
+      $stdout.puts "Nothing to upload"
       return true
     end
-    
-    @adapter.update(non_remote_backups)
+
+    @adapter.upload(non_remote_backups)
   ensure
     @remote_backups = @all_backups = nil
   end
 
   def fetch(ref)
     setup
-    
+
     backup = find_backup(ref, :all)
 
     unless backup
@@ -86,7 +86,7 @@ class Spare::Storage
 
   def prune
     setup
-    
+
     @adapter.prune
   ensure
     @local_backups = @all_backups = nil
@@ -94,7 +94,7 @@ class Spare::Storage
 
   def list_local
     setup
-    
+
     puts "Local backups:"
     local_backups.each do |backup|
       puts "  #{backup}"
@@ -103,7 +103,7 @@ class Spare::Storage
 
   def list_remote
     setup
-    
+
     puts "Remote backups:"
     remote_backups.each do |backup|
       puts "  #{backup}"
@@ -112,7 +112,7 @@ class Spare::Storage
 
   def list_all
     setup
-    
+
     puts "All backups:"
     all_backups.each do |backup|
       puts "  #{backup}"
