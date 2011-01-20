@@ -14,15 +14,41 @@ class Spare::Task
     end
   end
 
+  def include_files(files)
+    case files
+    when String
+      @config.include_patterns << files
+    when Array
+      files.map { |file| include_files file }
+    when Rake::FileList
+      files.to_a.map { |file| include_files file }
+    else
+      raise "a File spec must be a String, FileList or Array"
+    end
+    self
+  end
+
+  def exclude_files(files)
+    case files
+    when String
+      @config.exclude_patterns << files
+    when Array
+      files.map { |file| exclude_files file }
+    when Rake::FileList
+      files.to_a.map { |file| exclude_files file }
+    else
+      raise "a File spec must be a String, FileList or Array"
+    end
+    self
+  end
+
   def before_backup(deps=[], &block)
     Rake::Task.define_task("before_backup" => deps, &block)
     self
   end
 
-  def backup(&block)
-    task = Spare::BackupTask.define_task("#{@base_name}:backup", &block)
-    @config.backup_tasks[task.name] = task
-    Rake::Task.define_task("checkin_backup" => task.name)
+  def backup(deps=[], &block)
+    Rake::Task.define_task("checkin_backup" => deps, &block)
     self
   end
 
@@ -36,10 +62,8 @@ class Spare::Task
     self
   end
 
-  def restore(&block)
-    task = Spare::RestoreTask.define_task("#{@base_name}:restore", &block)
-    @config.restore_tasks[task.name] = task
-    Rake::Task.define_task("checkout_restore" => task.name)
+  def restore(deps=[], &block)
+    Rake::Task.define_task("checkout_restore" => deps, &block)
     self
   end
 

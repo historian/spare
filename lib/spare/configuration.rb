@@ -18,12 +18,18 @@ class Spare::Configuration
 
   def initialize(name, &block)
     @name  = name
-    @backup_tasks  = {}
-    @restore_tasks = {}
+
+    @include_patterns = []
+    @exclude_patterns = []
+
     Spare::Configuration::DSL.new(self, &block) if block
   end
 
-  attr_reader :name, :restore_tasks, :backup_tasks
-  attr_accessor :storage, :storage_config
+  attr_reader :name
+  attr_accessor :storage, :storage_config, :include_patterns, :exclude_patterns
+
+  def resolve_files
+    @include_patterns.uniq.sort - @exclude_patterns
+  end
 
 end

@@ -10,10 +10,8 @@ module Spare
   require 'spare/configuration'
   require 'spare/configuration/dsl'
   require 'spare/task'
-  require 'spare/backup_task'
-  require 'spare/restore_task'
   require 'spare/storage'
-  
+
   class Storage
     require 'spare/storage/backup'
     require 'spare/storage/base'

@@ -20,9 +20,7 @@ class Spare::Storage
   def backup(message)
     setup
 
-    files = @config.backup_tasks.map do |_, task|
-      task.resolve_files
-    end.flatten
+    files = @config.resolve_files
 
     if files.empty?
       $stderr.puts "Nothing to backup"
