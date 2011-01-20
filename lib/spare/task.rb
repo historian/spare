@@ -15,16 +15,7 @@ class Spare::Task
   end
 
   def include_files(files)
-    case files
-    when String
-      @config.include_patterns << files if File.file?(files)
-    when Array
-      files.map { |file| include_files file }
-    when Rake::FileList
-      files.to_a.map { |file| include_files file }
-    else
-      raise "a File spec must be a String, FileList or Array"
-    end
+    @config.include_patterns << files
     self
   end
 

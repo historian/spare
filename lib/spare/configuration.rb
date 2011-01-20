@@ -29,7 +29,9 @@ class Spare::Configuration
   attr_accessor :storage, :storage_config, :include_patterns, :exclude_patterns
 
   def resolve_files
-    @include_patterns.uniq.sort - @exclude_patterns
+    files  = @include_patterns.flatten.uniq.sort
+    files -= @exclude_patterns.flatten
+    files.select { |path| File.file?(path) }
   end
 
 end
