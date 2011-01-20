@@ -17,6 +17,7 @@ class Spare::Task
   def include_files(files)
     case files
     when String
+      files = files.select { |path| File.file?(path) }
       @config.include_patterns << files
     when Array
       files.map { |file| include_files file }
@@ -31,6 +32,7 @@ class Spare::Task
   def exclude_files(files)
     case files
     when String
+      files = files.select { |path| File.file?(path) }
       @config.exclude_patterns << files
     when Array
       files.map { |file| exclude_files file }
