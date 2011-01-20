@@ -9,7 +9,7 @@ class Spare::Storage::Git < Spare::Storage::Base
     ENV['GIT_DIR']       = File.expand_path(repository)
     ENV['GIT_WORK_TREE'] = stage
 
-    unless File.directory?(ENV['GIT_DIR'])
+    unless File.file?(File.join(ENV['GIT_DIR'], 'config'))
       system "git init #{stage}"
       unless $?.exitstatus == 0
         raise "Failed to init git repo"
