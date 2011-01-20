@@ -17,10 +17,10 @@ class Spare::Storage::Git < Spare::Storage::Base
     end
   end
 
-  def backup(files)
+  def backup(files, message)
     ensure_stage_exists
     stage_files(files)
-    
+
     changes = determine_changed_files(files)
 
     if changes.empty?
@@ -51,12 +51,14 @@ class Spare::Storage::Git < Spare::Storage::Base
     end
 
     # Commit changes
-    timestamp = Time.now.strftime("%Y%m%d%H%M%S")
-    message   = <<-EOM.gsub(/^    /m, '').strip
-    Backup (at #{timestamp})
-      remote: #{remote}
-      branch: #{branch}
-    EOM
+    message ||= begin
+      timestamp = Time.now.strftime("%Y%m%d%H%M%S")
+      message   = <<-EOM.gsub(/^      /m, '').strip
+      Backup (at #{timestamp})
+        remote: #{remote}
+        branch: #{branch}
+      EOM
+    end
 
     system "git commit -m #{SH.escape(message)}"
     $?.exitstatus != 0
@@ -98,7 +100,7 @@ class Spare::Storage::Git < Spare::Storage::Base
 
       @local_backups = nil
     end
-    
+
     files = `git ls-tree --name-only --full-tree -r #{SH.escape(backup.name)}`
     if $?.exitstatus == 0
       files = files.strip.split("\n")
@@ -107,9 +109,9 @@ class Spare::Storage::Git < Spare::Storage::Base
     end
 
     system "git reset --hard #{SH.escape(backup.name)}"
-    
+
     unstage_files(files)
-    
+
     $?.exitstatus == 0
   ensure
     clear_stage
@@ -252,7 +254,7 @@ private
   def repository
     storage_config.repository || 'tmp/backup.git'
   end
-  
+
   def stage
     @stage ||= File.expand_path('spare_stage', File.expand_path(repository))
   end
@@ -303,7 +305,7 @@ private
 
     changes.uniq
   end
-  
+
   def stage_files(files)
     files.each do |path|
       if File.file?(path)
@@ -313,27 +315,27 @@ private
       end
     end
   end
-  
+
   def unstage_files(files)
     files.each do |path|
       src = File.expand_path(path, stage)
-      
+
       if File.file?(path)
         File.unlink(path)
       elsif File.exists?(path) # not a file
         puts "Skiped #{path} (not a file)"
         next
       end
-      
+
       FileUtils.mkdir_p(File.dirname(path))
       File.link(src, path)
     end
   end
-  
+
   def ensure_stage_exists
     FileUtils.mkdir_p(stage)
   end
-  
+
   def clear_stage
     FileUtils.rm_rf(stage)
   end

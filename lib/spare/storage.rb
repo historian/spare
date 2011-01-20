@@ -17,7 +17,7 @@ class Spare::Storage
     @adapter = adapter_class.new(config)
   end
 
-  def backup
+  def backup(message)
     setup
 
     files = @config.backup_tasks.map do |_, task|
@@ -29,7 +29,7 @@ class Spare::Storage
       return false
     end
 
-    @adapter.backup(files.uniq.sort)
+    @adapter.backup(files.uniq.sort, message)
   ensure
     @local_backups = @all_backups = nil
   end

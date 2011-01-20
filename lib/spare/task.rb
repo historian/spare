@@ -60,7 +60,7 @@ private
     name = [namespace, 'push'].flatten.join(':')
 
     unless Rake::Task.task_defined?(name)
-      t = Rake::Task.define_task('create')
+      t = Rake::Task.define_task('create', [:msg])
       t.add_description "Create a new backup."
 
       t = Rake::Task.define_task('restore', [:ref, :hard])
@@ -107,8 +107,8 @@ private
       Rake::Task.define_task("after_restore"    => 'checkout_restore')
       Rake::Task.define_task("restore"          => 'after_restore')
 
-      Rake::Task.define_task('real_backup') do
-        @config.storage.backup
+      Rake::Task.define_task('real_backup') do |t, args|
+        @config.storage.backup(args[:msg])
       end
 
       Rake::Task.define_task('backup_before_restore', [:hard]) do |t, args|

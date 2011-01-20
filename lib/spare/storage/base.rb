@@ -11,7 +11,7 @@ class Spare::Storage::Base
     raise NotImplemented
   end
 
-  def backup
+  def backup(files, message)
     raise NotImplemented
   end
 
